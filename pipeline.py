@@ -6,9 +6,9 @@ import os
 import plutil
 
 # 3rd party imports
-import numpy as np
 import boto3
-
+import numpy as np
+import spacy
 
 class Pipeline:
     def __init__(self, corpus_name, mode="plaintext", mode_options=None,
@@ -77,6 +77,8 @@ class Pipeline:
             self.txt_fnames = sample_fnames
             # And update the corpus name
             self.corpus_name = self.corpus_name + "_s" + str(self.sample_N)
+        # We don't initialize the spaCy model here (only as needed)
+        self.spacy_model = None
 
     def get_output_path(self):
         """
@@ -92,6 +94,18 @@ class Pipeline:
             # We just use dirname
             return os.path.join("..", "..", "..", "output", "analysis", self.output_dirname)
 
+    def get_artsplit_output_path(self, ext):
+        return os.path.join(self.get_output_path(), f"01_artsplit_elliott_{ext}")
+
+    def get_spacy_output_path(self):
+        return os.path.join(self.get_output_path(), "02_spacy_pkl")
+
+    def get_sdata_output_path(self):
+        return os.path.join(self.get_output_path(), "03a_sdata_pkl")
+
+    def get_pdata_output_path(self):
+        return os.path.join(self.get_output_path(), "03b_pdata_pkl")
+
     def get_num_docs(self):
         return len(self.txt_fnames)
 
@@ -101,6 +115,47 @@ class Pipeline:
         lang_fpaths = sorted(glob.glob(pt_glob_str))
         lang_fnames = [os.path.basename(fpath) for fpath in lang_fpaths]
         return lang_fnames
+
+    def get_spacy_model(self):
+        """
+        Annoying but necessary additional step: adding "contract_id" and
+        "art_num" attributes to spacy's Doc class, so that we can serialize and
+        deserialize without headaches
+
+        See https://spacy.io/usage/processing-pipelines#custom-components-attributes
+
+        All the neuralcoref attributes for a doc, for future reference:
+        * `cr_test_doc._.has_coref`
+        * `cr_test_doc._.coref_resolved`
+        * `cr_test_doc._.coref_clusters`
+        * `cr_test_doc._.coref_scores`
+
+        And code for looping over the clusters:
+        ```
+        for cluster in cr_test_doc._.coref_clusters:
+            print(f"===== #{cluster.i}")
+            print(cluster)
+            print(f"main: '{cluster.main}'")
+            print(cluster.mentions)
+            for mention in cluster.mentions:
+                print(mention)
+                print(mention.start)
+                print(mention.end)
+
+        :return: :obj:
+            The spaCy model with custom `contract_id`, `lang`, and `art_num` fields
+        """
+        if self.spacy_model is None:
+            self.vprint("Loading spaCy core model")
+            nlp_eng = spacy.load('en_core_web_md', disable=["ner"])
+            # The force=True is just so that we can change (e.g.) the names or
+            # default values and overwrite the extensions (otherwise this would
+            # always cause an Exception)
+            #spacy.tokens.Doc.set_extension("contract_id", default=None, force=True)
+            #spacy.tokens.Doc.set_extension("lang", default=None, force=True)
+            #spacy.tokens.Doc.set_extension("art_num", default=None, force=True)
+            self.spacy_model = nlp_eng
+        return self.spacy_model
 
     def split_contracts(self):
         # Import the contract splitting code

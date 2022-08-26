@@ -8,6 +8,47 @@ import joblib
 from tqdm import tqdm
 
 
+class ArtMeta:
+    """
+    Just a quick wrapper class to make sure that we always have consistent
+    metadata for each article within a contract
+    """
+    def __init__(self, contract_id, lang, art_num):
+        self.contract_id = contract_id
+        self.lang = lang
+        self.art_num = art_num
+
+    def get_contract_id(self):
+        return self.contract_id
+
+    def get_lang(self):
+        return self.lang
+
+    def get_art_num(self):
+        return self.art_num
+
+
+class DocMeta:
+    """
+    Just a quick wrapper class to make sure that we always have consistent
+    metadata for each contract
+    """
+    def __init__(self, contract_id, lang):
+        """
+
+        """
+        self.contract_id = contract_id
+        self.lang = lang
+
+    def gen_fname(self, ext):
+        return f"{self.contract_id}_{self.lang}.{ext}"
+
+    def get_contract_id(self):
+        return self.contract_id
+
+    def get_lang(self):
+        return self.lang
+
 def gen_timestamp_str():
     """
     Generates a string based on the current-time timestamp (for use in generating
